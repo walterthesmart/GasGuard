@@ -12,6 +12,7 @@ import { TransactionAnalysisService } from './services/transaction-analysis.serv
 import { CrossChainGasService } from './services/cross-chain-gas.service';
 import { RateLimitingModule, RateLimitGuard } from './rate-limiting';
 import { AuthModule, JwtAuthGuard, RolesGuard } from './auth';
+import { ExportsModule } from './exports/exports.module';
 
 @Module({
     imports: [
@@ -31,6 +32,8 @@ import { AuthModule, JwtAuthGuard, RolesGuard } from './auth';
         AuthModule,
         // New Redis-based rate limiting module
         RateLimitingModule.forRoot(),
+        // Gas usage CSV export module
+        ExportsModule,
     ],
     controllers: [
         AppController,
