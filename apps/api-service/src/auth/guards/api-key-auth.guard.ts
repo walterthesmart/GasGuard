@@ -1,7 +1,5 @@
 import {
   Injectable,
-  CanActivate,
-  ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiKeyService } from '../../audit/services/api-key.service';
@@ -24,20 +22,17 @@ export interface ApiKeyRequest {
  * - apiKey query parameter
  */
 @Injectable()
-export class ApiKeyAuthGuard implements CanActivate {
+export class ApiKeyAuthGuard {
   constructor(private readonly apiKeyService: ApiKeyService) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<ApiKeyRequest>();
+  async canActivate(context: any): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
     
     // Extract API key from request
     const rawApiKey = this.extractApiKey(request);
     
     if (!rawApiKey) {
-      throw new UnauthorizedException({
-        error: 'APIKeyMissing',
-        message: 'API key is required. Provide it via Authorization header (Bearer), X-API-Key header, or apiKey query parameter.',
-      });
+      throw new UnauthorizedException('API key is required. Provide it via Authorization header (Bearer), X-API-Key header, or apiKey query parameter.');
     }
 
     try {
@@ -56,10 +51,7 @@ export class ApiKeyAuthGuard implements CanActivate {
       }
       
       // Generic error for other cases
-      throw new UnauthorizedException({
-        error: 'APIKeyInvalid',
-        message: 'Invalid API key',
-      });
+      throw new UnauthorizedException('Invalid API key');
     }
   }
 
@@ -93,11 +85,11 @@ export class ApiKeyAuthGuard implements CanActivate {
  * Attaches API key info if present, but doesn't require it
  */
 @Injectable()
-export class OptionalApiKeyAuthGuard implements CanActivate {
+export class OptionalApiKeyAuthGuard {
   constructor(private readonly apiKeyService: ApiKeyService) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<ApiKeyRequest>();
+  async canActivate(context: any): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
     
     // Extract API key from request
     const rawApiKey = this.extractApiKey(request);
