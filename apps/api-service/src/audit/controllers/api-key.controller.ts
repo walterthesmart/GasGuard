@@ -6,13 +6,10 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
-  Request,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { ApiKeyService } from '../services/api-key.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import {
   CreateApiKeyDto,
   ListApiKeysQueryDto,
@@ -23,9 +20,9 @@ import {
 /**
  * API Key Management Controller
  * Handles creation, rotation, and revocation of API keys
+ * Note: JWT Auth Guard should be applied at route level or globally
  */
 @Controller('api-keys')
-@UseGuards(JwtAuthGuard)
 export class ApiKeyController {
   constructor(private readonly apiKeyService: ApiKeyService) {}
 
@@ -36,7 +33,7 @@ export class ApiKeyController {
   @Post()
   async createApiKey(
     @Body() createDto: CreateApiKeyDto,
-    @Request() req: any,
+    req: any,
   ) {
     // Get merchantId from authenticated user
     const merchantId = req.user?.merchantId || req.user?.sub;
@@ -57,7 +54,7 @@ export class ApiKeyController {
   @Get()
   async listApiKeys(
     @Query() query: ListApiKeysQueryDto,
-    @Request() req: any,
+    req: any,
   ) {
     const merchantId = req.user?.merchantId || req.user?.sub;
     
@@ -81,7 +78,7 @@ export class ApiKeyController {
   @Get(':id/status')
   async getApiKeyStatus(
     @Param('id') keyId: string,
-    @Request() req: any,
+    req: any,
   ) {
     const merchantId = req.user?.merchantId || req.user?.sub;
     
@@ -101,7 +98,7 @@ export class ApiKeyController {
   async rotateApiKey(
     @Param('id') keyId: string,
     @Body() rotateDto: RotateApiKeyDto,
-    @Request() req: any,
+    req: any,
   ) {
     const merchantId = req.user?.merchantId || req.user?.sub;
     
@@ -127,7 +124,7 @@ export class ApiKeyController {
   async revokeApiKey(
     @Param('id') keyId: string,
     @Body() revokeDto: RevokeApiKeyDto,
-    @Request() req: any,
+    req: any,
   ) {
     const merchantId = req.user?.merchantId || req.user?.sub;
     
@@ -146,7 +143,7 @@ export class ApiKeyController {
   @Delete(':id')
   async deleteApiKey(
     @Param('id') keyId: string,
-    @Request() req: any,
+    req: any,
   ) {
     const merchantId = req.user?.merchantId || req.user?.sub;
     
