@@ -20,4 +20,20 @@ pub enum ExecuteMsg {
         msgs: Vec<BatchMsg>,
         auth: Auth,
     },
+
+    Batch {
+        msgs: Vec<BatchMsg>,
+    },
+}
+
+#[cw_serde]
+pub enum BatchMsg {
+    SetMetadata {
+        token_id: String,
+        metadata: PropertyMetadata,
+    },
+    UpdateMetadata {
+        token_id: String,
+        metadata: PropertyMetadata,
+    },
 }
