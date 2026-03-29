@@ -235,6 +235,12 @@ describe('Solidity Reentrancy Guard Analysis', () => {
                 require(msg.sender == owner, "Not owner");
                 treasury -= amount;
                 recipient.transfer(amount);
+  describe('External Call Validation', () => {
+    it('should detect unchecked low-level call return values', async () => {
+      const uncheckedCallContract = `
+        contract UncheckedCall {
+            function execute(address target, bytes calldata data) external {
+                target.call(data);
             }
         }
       `;
@@ -242,6 +248,7 @@ describe('Solidity Reentrancy Guard Analysis', () => {
       const result = await engine.scan({
         language: 'solidity',
         source: vulnerableContract,
+        source: uncheckedCallContract,
       });
 
       expect(result.issues).toContainEqual(
@@ -269,6 +276,18 @@ describe('Solidity Reentrancy Guard Analysis', () => {
                 require(queued[opId], "Not queued");
                 // Missing block.timestamp delay check
                 queued[opId] = false;
+          ruleId: 'sol-008',
+          severity: 'high',
+        })
+      );
+    });
+
+    it('should not flag low-level call when return value is captured and checked', async () => {
+      const safeCallContract = `
+        contract SafeCall {
+            function execute(address target, bytes calldata data) external {
+                (bool success, ) = target.call(data);
+                require(success, "Call failed");
             }
         }
       `;
@@ -302,6 +321,21 @@ describe('Solidity Reentrancy Guard Analysis', () => {
 
             function cancel(bytes32 opId) external {
                 delete queuedAt[opId];
+        source: safeCallContract,
+      });
+
+      const uncheckedCallIssues = result.issues.filter(
+        issue => issue.ruleId === 'sol-008' && issue.message.includes('return value not checked')
+      );
+      expect(uncheckedCallIssues).toHaveLength(0);
+    });
+
+    it('should detect delegatecall usage as unsafe external interaction', async () => {
+      const delegateCallContract = `
+        contract DelegateCaller {
+            function proxy(address target, bytes calldata data) external {
+                (bool ok, ) = target.delegatecall(data);
+                require(ok, "delegatecall failed");
             }
         }
       `;
@@ -332,6 +366,27 @@ describe('Solidity Reentrancy Guard Analysis', () => {
                 require(msg.sender == owner, "Not owner");
                 require(block.timestamp >= queuedAt[opId], "Timelock not expired");
                 delete queuedAt[opId];
+        source: delegateCallContract,
+      });
+
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          ruleId: 'sol-008',
+          message: expect.stringContaining('delegatecall'),
+        })
+      );
+    });
+
+    it('should detect CEI violations when state is updated after external calls', async () => {
+      const ceiViolationContract = `
+        contract CeiViolation {
+            mapping(address => uint256) public balances;
+
+            function withdraw(uint256 amount) external {
+                require(balances[msg.sender] >= amount, "Insufficient");
+                (bool success, ) = msg.sender.call{value: amount}("");
+                require(success, "Transfer failed");
+                balances[msg.sender] -= amount;
             }
         }
       `;
@@ -339,6 +394,7 @@ describe('Solidity Reentrancy Guard Analysis', () => {
       const result = await engine.scan({
         language: 'solidity',
         source: vulnerableContract,
+        source: ceiViolationContract,
       });
 
       expect(result.issues).toContainEqual(
@@ -392,6 +448,22 @@ describe('Solidity Reentrancy Guard Analysis', () => {
                 require(queuedOperations[opId].exists, "Not queued");
                 delete queuedOperations[opId];
                 emit OperationCancelled(opId);
+          ruleId: 'sol-008',
+          message: expect.stringContaining('CEI'),
+        })
+      );
+    });
+
+    it('should not flag CEI-compliant functions with effects before interactions', async () => {
+      const compliantCeiContract = `
+        contract CorrectCei {
+            mapping(address => uint256) public balances;
+
+            function withdraw(uint256 amount) external {
+                require(balances[msg.sender] >= amount, "Insufficient");
+                balances[msg.sender] -= amount;
+                (bool success, ) = msg.sender.call{value: amount}("");
+                require(success, "Transfer failed");
             }
         }
       `;
@@ -403,6 +475,13 @@ describe('Solidity Reentrancy Guard Analysis', () => {
 
       const timelockIssues = result.issues.filter(issue => issue.ruleId === 'sol-009');
       expect(timelockIssues).toHaveLength(0);
+        source: compliantCeiContract,
+      });
+
+      const ceiIssues = result.issues.filter(
+        issue => issue.ruleId === 'sol-008' && issue.message.includes('CEI')
+      );
+      expect(ceiIssues).toHaveLength(0);
     });
   });
 });
